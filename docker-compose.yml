@@ -1,0 +1,51 @@
+version: '3.7'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./infra/backend/Dockerfile
+    image: backend:latest
+    environment:
+      spring.kafka.bootstrap-servers: kafka:9092
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+  zookeeper:
+    image: 'bitnami/zookeeper:3.6.1-debian-10-r54'
+    ports:
+      - '2181'
+    volumes:
+      - zk-data:/bitnami/zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    restart: unless-stopped
+  kafka:
+    image: 'bitnami/kafka:2.5.0-debian-10-r70'
+    ports:
+      - 9093:9093
+    volumes:
+      - kafka-data:/bitnami/kafka
+    depends_on:
+      - zookeeper
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_HEAP_OPTS=-Xmx256m -Xms256m
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
+      - KAFKA_MAX_MESSAGE_BYTES=3145728
+      - KAFKA_REPLICA_FETCH_MAX_BYTES=3145728
+    restart: unless-stopped
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    ports:
+      - "9095:9000"
+    environment:
+      - KAFKA_BROKERCONNECT=kafka:9092
+      - JVM_OPTS=-Xms32M -Xmx64M
+volumes:
+  zk-data: {}
+  kafka-data: {}
